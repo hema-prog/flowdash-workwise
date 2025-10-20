@@ -5,10 +5,10 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Lock, BarChart3 } from "lucide-react";
+import { Users, BarChart3 } from "lucide-react";
 
 export default function Login() {
-  const [role, setRole] = useState<"admin" | "manager" | "operator">("manager");
+  const [role, setRole] = useState<"manager" | "operator">("operator");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
@@ -36,24 +36,17 @@ export default function Login() {
 
   const roleCards = [
     {
-      role: "admin" as const,
-      title: "Administrator",
-      icon: Lock,
-      description: "Full system access and user management",
-      color: "from-destructive to-destructive/80",
+      role: "operator" as const,
+      title: "Operator",
+      icon: Users,
+      description: "Track work, manage tasks, and submit reports",
+      color: "from-primary to-accent",
     },
     {
       role: "manager" as const,
       title: "Project Manager",
       icon: BarChart3,
-      description: "Manage projects and allocate tasks",
-      color: "from-primary to-accent",
-    },
-    {
-      role: "operator" as const,
-      title: "Operator",
-      icon: Users,
-      description: "Log work and update task status",
+      description: "Manage team, assign tasks, and track performance",
       color: "from-success to-success/80",
     },
   ];

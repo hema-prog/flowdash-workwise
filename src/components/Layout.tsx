@@ -13,7 +13,7 @@ import {
 
 interface LayoutProps {
   children: ReactNode;
-  role?: "admin" | "manager" | "operator";
+  role?: "manager" | "operator";
 }
 
 export const Layout = ({ children, role }: LayoutProps) => {
@@ -32,20 +32,12 @@ export const Layout = ({ children, role }: LayoutProps) => {
       { icon: LayoutDashboard, label: "Dashboard", path: `/${role}` },
     ];
 
-    if (role === "admin") {
-      return [
-        ...common,
-        { icon: Users, label: "Users", path: "/admin/users" },
-        { icon: FolderKanban, label: "Projects", path: "/admin/projects" },
-        { icon: BarChart3, label: "Analytics", path: "/admin/analytics" },
-      ];
-    }
-
     if (role === "manager") {
       return [
         ...common,
+        { icon: Users, label: "Employees", path: "/manager/employees" },
         { icon: FolderKanban, label: "Projects", path: "/manager/projects" },
-        { icon: Users, label: "Team", path: "/manager/team" },
+        { icon: BarChart3, label: "Performance", path: "/manager/performance" },
         { icon: FileText, label: "Reports", path: "/manager/reports" },
       ];
     }
@@ -53,9 +45,9 @@ export const Layout = ({ children, role }: LayoutProps) => {
     if (role === "operator") {
       return [
         ...common,
-        { icon: Clock, label: "Worksheet", path: "/operator/worksheet" },
+        { icon: Clock, label: "Timesheet", path: "/operator/timesheet" },
         { icon: FolderKanban, label: "My Tasks", path: "/operator/tasks" },
-        { icon: FileText, label: "Reports", path: "/operator/reports" },
+        { icon: FileText, label: "Documents", path: "/operator/documents" },
       ];
     }
 

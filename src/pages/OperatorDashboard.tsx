@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { StatsCard } from "@/components/StatsCard";
+import { WorksheetCalendar } from "@/components/WorksheetCalendar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -22,6 +24,7 @@ import {
   Upload,
   Play,
   Pause,
+  Calendar,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -39,6 +42,7 @@ export default function OperatorDashboard() {
       hoursAllocated: 8,
       hoursUsed: 5.5,
       deadline: "2024-10-25",
+      priority: "high",
     },
     {
       id: 2,
@@ -48,6 +52,7 @@ export default function OperatorDashboard() {
       hoursAllocated: 12,
       hoursUsed: 0,
       deadline: "2024-10-28",
+      priority: "medium",
     },
     {
       id: 3,
@@ -57,20 +62,12 @@ export default function OperatorDashboard() {
       hoursAllocated: 6,
       hoursUsed: 6,
       deadline: "2024-10-22",
+      priority: "low",
     },
   ];
 
-  const todayWorksheet = [
-    { hour: "09:00 - 10:00", task: "Homepage UI Development", status: "Completed" },
-    { hour: "10:00 - 11:00", task: "Homepage UI Development", status: "Completed" },
-    { hour: "11:00 - 12:00", task: "Code Review", status: "Completed" },
-    { hour: "12:00 - 13:00", task: "Lunch Break", status: "Break" },
-    { hour: "13:00 - 14:00", task: "API Integration", status: "In Progress" },
-    { hour: "14:00 - 15:00", task: "Not Started", status: "Pending" },
-    { hour: "15:00 - 16:00", task: "Not Started", status: "Pending" },
-    { hour: "16:00 - 17:00", task: "Not Started", status: "Pending" },
-    { hour: "17:00 - 18:00", task: "Not Started", status: "Pending" },
-  ];
+  const pendingTasks = tasks.filter((t) => t.status === "Pending").length;
+  const inProgressTasks = tasks.filter((t) => t.status === "In Progress").length;
 
   const handleStartTimer = () => {
     if (!currentTask) {
@@ -84,7 +81,7 @@ export default function OperatorDashboard() {
     setIsTimerRunning(true);
     toast({
       title: "Timer Started",
-      description: `Working on: ${currentTask}`,
+      description: `Tracking time for: ${currentTask}`,
     });
   };
 
@@ -96,50 +93,55 @@ export default function OperatorDashboard() {
     });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Completed":
-        return "success";
-      case "In Progress":
-        return "warning";
-      case "Break":
-        return "default";
-      default:
-        return "default";
-    }
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, any> = {
+      "In Progress": "warning",
+      Completed: "success",
+      Pending: "default",
+    };
+    return variants[status] || "default";
+  };
+
+  const getPriorityBadge = (priority: string) => {
+    const variants: Record<string, any> = {
+      high: "destructive",
+      medium: "warning",
+      low: "default",
+    };
+    return variants[priority] || "default";
   };
 
   return (
     <Layout role="operator">
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-4xl font-bold mb-2">Operator Dashboard</h1>
+          <h1 className="text-3xl font-bold mb-1">My Dashboard</h1>
           <p className="text-muted-foreground">
-            Track your work, log hours, and update task status
+            Employee: John Doe • Today: {new Date().toLocaleDateString()}
           </p>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-4">
           <StatsCard
             title="Today's Hours"
-            value="5.5"
+            value="5.5/9"
             icon={Clock}
             trend="3.5h remaining"
-            trendUp={true}
+            trendUp={false}
             color="primary"
           />
           <StatsCard
-            title="Active Tasks"
-            value="3"
+            title="Tasks Pending"
+            value={pendingTasks}
             icon={AlertCircle}
-            trend="1 in progress"
-            trendUp={true}
+            trend={`${inProgressTasks} in progress`}
+            trendUp={false}
             color="warning"
           />
           <StatsCard
-            title="Completed Tasks"
+            title="Tasks Completed"
             value="12"
             icon={CheckCircle2}
             trend="This week"
@@ -147,39 +149,45 @@ export default function OperatorDashboard() {
             color="success"
           />
           <StatsCard
-            title="Reports Submitted"
+            title="Documents"
             value="8"
             icon={FileText}
-            trend="This month"
-            trendUp={true}
+            trend="3 pending review"
+            trendUp={false}
             color="primary"
           />
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        {/* Timer & Quick Update */}
+        <div className="grid gap-4 lg:grid-cols-2">
           {/* Time Tracker */}
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-6">Time Tracker</h3>
+            <div className="flex items-center gap-2 mb-4">
+              <Clock className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Time Tracker</h3>
+            </div>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Current Task</Label>
+                <Label>Select Task</Label>
                 <Select value={currentTask} onValueChange={setCurrentTask}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a task" />
+                    <SelectValue placeholder="Choose a task to track" />
                   </SelectTrigger>
                   <SelectContent>
-                    {tasks.map((task) => (
-                      <SelectItem key={task.id} value={task.name}>
-                        {task.name} - {task.project}
-                      </SelectItem>
-                    ))}
+                    {tasks
+                      .filter((t) => t.status !== "Completed")
+                      .map((task) => (
+                        <SelectItem key={task.id} value={task.name}>
+                          {task.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="flex items-center justify-center py-8">
+              <div className="flex items-center justify-center py-6">
                 <div className="text-center">
-                  <div className="text-6xl font-bold mb-4 font-mono">
+                  <div className="text-5xl font-bold mb-4 font-mono tabular-nums">
                     {isTimerRunning ? "01:23:45" : "00:00:00"}
                   </div>
                   {isTimerRunning ? (
@@ -189,16 +197,12 @@ export default function OperatorDashboard() {
                       className="gap-2"
                       onClick={handleStopTimer}
                     >
-                      <Pause className="h-5 w-5" />
-                      Stop Timer
+                      <Pause className="h-4 w-4" />
+                      Stop & Log Time
                     </Button>
                   ) : (
-                    <Button
-                      size="lg"
-                      className="gap-2"
-                      onClick={handleStartTimer}
-                    >
-                      <Play className="h-5 w-5" />
+                    <Button size="lg" className="gap-2" onClick={handleStartTimer}>
+                      <Play className="h-4 w-4" />
                       Start Timer
                     </Button>
                   )}
@@ -207,15 +211,18 @@ export default function OperatorDashboard() {
             </div>
           </Card>
 
-          {/* Quick Update */}
+          {/* Quick Status Update */}
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-6">Quick Status Update</h3>
+            <div className="flex items-center gap-2 mb-4">
+              <FileText className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Quick Update & Upload</h3>
+            </div>
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Task</Label>
                 <Select>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select task to update" />
+                    <SelectValue placeholder="Select task" />
                   </SelectTrigger>
                   <SelectContent>
                     {tasks.map((task) => (
@@ -231,103 +238,108 @@ export default function OperatorDashboard() {
                 <Label>Status</Label>
                 <Select>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
+                    <SelectValue placeholder="Update status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="in-progress">In Progress</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="on-hold">On Hold</SelectItem>
+                    <SelectItem value="blocked">Blocked</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <Label>Remarks</Label>
-                <Textarea
-                  placeholder="Add any remarks or notes..."
-                  rows={3}
-                />
+                <Textarea placeholder="Add progress notes..." rows={2} />
               </div>
 
               <div className="space-y-2">
-                <Label>Upload Report (Optional)</Label>
-                <div className="flex items-center gap-2">
-                  <Input type="file" />
+                <Label>Upload Document/Report</Label>
+                <div className="flex gap-2">
+                  <Input type="file" className="flex-1" />
                   <Button variant="outline" size="icon">
                     <Upload className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
-              <Button className="w-full" variant="success">
-                Update Status
-              </Button>
+              <Button className="w-full">Submit Update</Button>
             </div>
           </Card>
         </div>
 
-        {/* Today's Worksheet */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-6">Today's Worksheet (9 Hours)</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 font-medium">Time Slot</th>
-                  <th className="text-left py-3 px-4 font-medium">Task</th>
-                  <th className="text-left py-3 px-4 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {todayWorksheet.map((slot, index) => (
-                  <tr key={index} className="border-b border-border last:border-0">
-                    <td className="py-3 px-4 font-medium">{slot.hour}</td>
-                    <td className="py-3 px-4">{slot.task}</td>
-                    <td className="py-3 px-4">
-                      <Badge variant={getStatusColor(slot.status) as any}>
-                        {slot.status}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        {/* Calendar */}
+        <WorksheetCalendar />
 
         {/* My Tasks */}
         <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-6">My Assigned Tasks</h3>
-          <div className="space-y-4">
-            {tasks.map((task) => (
-              <div
-                key={task.id}
-                className="p-4 rounded-lg border border-border hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h4 className="font-semibold">{task.name}</h4>
-                      <Badge variant={getStatusColor(task.status) as any}>
-                        {task.status}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                      <span>{task.project}</span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        {task.hoursUsed}/{task.hoursAllocated} hours
-                      </span>
-                      <span>Due: {task.deadline}</span>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">My Assigned Tasks</h3>
+            <Badge variant="outline">{tasks.length} Total</Badge>
+          </div>
+          <div className="space-y-3">
+            {tasks.map((task) => {
+              const progress = (task.hoursUsed / task.hoursAllocated) * 100;
+              return (
+                <div
+                  key={task.id}
+                  className="p-4 rounded-lg border border-border hover:shadow-md transition-all"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold">{task.name}</h4>
+                        <Badge variant={getStatusBadge(task.status) as any}>
+                          {task.status}
+                        </Badge>
+                        <Badge variant={getPriorityBadge(task.priority) as any}>
+                          {task.priority}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span>{task.project}</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {task.hoursUsed}/{task.hoursAllocated}h
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          Due: {task.deadline}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <Button variant="outline">View Details</Button>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Progress</span>
+                      <span className="font-medium">{Math.round(progress)}%</span>
+                    </div>
+                    <Progress value={progress} />
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
+
+        {/* Reminders */}
+        {pendingTasks > 0 && (
+          <Card className="p-4 bg-warning/10 border-warning">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-warning" />
+              <div className="flex-1">
+                <p className="font-medium text-warning">Pending Tasks Reminder</p>
+                <p className="text-sm text-muted-foreground">
+                  You have {pendingTasks} task(s) that need attention
+                </p>
+              </div>
+              <Button variant="outline" size="sm">
+                View Tasks
+              </Button>
+            </div>
+          </Card>
+        )}
       </div>
     </Layout>
   );
