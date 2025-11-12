@@ -1,20 +1,27 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Users, BarChart3 } from "lucide-react";
+import { Users, BarChart3, Lock, LogIn, Loader2 } from "lucide-react"; // Added Lock, LogIn, Loader2
+
+// --- Colors based on inspiration ---
+const COLOR_PRIMARY = "#0000cc";
+const COLOR_ACCENT_ICON = "text-red-500";
 
 export default function Login() {
-  const [role, setRole] = useState<"manager" | "operator">("operator");
+  const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!email || !password) {
@@ -26,119 +33,153 @@ export default function Login() {
       return;
     }
 
-    localStorage.setItem("userRole", role);
-    toast({
-      title: "Login Successful",
-      description: `Welcome back, ${role}!`,
-    });
-    navigate(`/${role}`);
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      console.log(data)
+
+      if (!res.ok) {
+        throw new Error(data.message || "Login failed");
+      }
+
+      // Store JWT and role in localStorage
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("userRole", data.role);
+      localStorage.setItem("userEmail", data.email);
+
+      toast({
+        title: "Login Successful",
+        description: `Welcome back, ${data.email}!`,
+      });
+
+      console.log(data.role)
+
+      // Redirect to dashboard
+      navigate(`/${data.role}`);
+    } catch (err: any) {
+      toast({
+        title: "Login Failed",
+        description: err.message || "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const roleCards = [
-    {
-      role: "operator" as const,
-      title: "Operator",
-      icon: Users,
-      description: "Track work, manage tasks, and submit reports",
-      color: "from-primary to-accent",
-    },
-    {
-      role: "manager" as const,
-      title: "Project Manager",
-      icon: BarChart3,
-      description: "Manage team, assign tasks, and track performance",
-      color: "from-success to-success/80",
-    },
-  ];
+  // const roleCards = [
+  //   // Operator: Use deep blue for icon when not selected
+  //   { role: "operator" as const, title: "Operator", icon: Users, iconColor: COLOR_ACCENT_ICON  },
+  //   // Manager: Use red for icon when not selected (as an accent)
+  //   { role: "manager" as const, title: "Project Manager", icon: BarChart3, iconColor: COLOR_ACCENT_ICON },
+  // ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
-      <div className="w-full max-w-6xl">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
-            OpTrack Pro
-          </h1>
-          <p className="text-xl text-muted-foreground">
-            Project Management & Operations Tracking System
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-8 items-start">
-          {/* Role Selection */}
-          <div>
-            <h2 className="text-2xl font-semibold mb-6">Select Your Role</h2>
-            <div className="space-y-4">
-              {roleCards.map((card) => {
-                const Icon = card.icon;
-                const isSelected = role === card.role;
-                return (
-                  <Card
-                    key={card.role}
-                    className={`p-6 cursor-pointer transition-all hover:shadow-lg ${
-                      isSelected ? "ring-2 ring-primary shadow-lg" : ""
-                    }`}
-                    onClick={() => setRole(card.role)}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div
-                        className={`rounded-lg p-3 bg-gradient-to-br ${card.color}`}
-                      >
-                        <Icon className="h-6 w-6 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg mb-1">
-                          {card.title}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {card.description}
-                        </p>
-                      </div>
-                      {isSelected && (
-                        <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
-                          <div className="h-3 w-3 rounded-full bg-white" />
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-                );
-              })}
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <Card 
+          className="shadow-2xl border-t-4 rounded-xl"
+          style={{ borderTopColor: COLOR_PRIMARY }}
+        >
+          <CardHeader className="text-center space-y-2">
+            <div className="mb-4">
+              {/* Logo/Branding */}
+              <div className="flex justify-center items-center gap-2 mb-2">
+                <img className="w-[12rem]" src="https://i0.wp.com/dotspeaks.com/wp-content/uploads/2025/07/Dotspeaks-logo.png?fit=2560%2C591&ssl=1" alt="" />
+              </div>
             </div>
-          </div>
+            <CardTitle className="text-2xl font-semibold" style={{ color: COLOR_PRIMARY }}>
+              Sign In to Your Account
+            </CardTitle>
+            {/* <CardDescription className="text-gray-500">
+              Select your role to access the correct dashboard.
+            </CardDescription> */}
+          </CardHeader>
 
-          {/* Login Form */}
-          <Card className="p-8">
-            <h2 className="text-2xl font-semibold mb-6">Login</h2>
+          <CardContent>
             <form onSubmit={handleLogin} className="space-y-6">
+              {/* <div className="space-y-3">
+                <Label className="text-gray-700">Your Role</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  {roleCards.map((card) => {
+                    const Icon = card.icon;
+                    const isSelected = role === card.role;
+                    return (
+                      <div
+                        key={card.role}
+                        className={`p-4 border rounded-lg flex items-center justify-center cursor-pointer transition-all duration-200 shadow-sm ${
+                          isSelected
+                            ? "border-[#0000cc] text-white font-semibold"
+                            : "hover:bg-gray-100 border-gray-300 text-gray-700"
+                        }`}
+                        // Apply custom primary color background when selected
+                        style={isSelected ? { backgroundColor: COLOR_PRIMARY } : {}}
+                        onClick={() => setRole(card.role)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon className={`h-5 w-5 ${isSelected ? COLOR_ACCENT_ICON : card.iconColor}`} />
+                          <span>{card.title}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div> */}
+
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-gray-700">Email</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="Enter your email"
+                  placeholder="name@company.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                  className="focus:border-[#0000cc] border-gray-30o"
                 />
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-gray-700">Password</Label>
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Enter your password"
+                  placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  className="focus:border-[#0000cc] border-gray-300"
                 />
               </div>
-              <Button type="submit" className="w-full" size="lg">
-                Login as {role.charAt(0).toUpperCase() + role.slice(1)}
+
+              <Button 
+                type="submit" 
+                className="w-full h-11 gap-2 text-lg font-semibold shadow-md" 
+                style={{ backgroundColor: COLOR_PRIMARY }}
+                // Tailwind class for hover effect
+                size="lg" 
+                disabled={loading}
+              >
+                {loading ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin text-red-500" /> Logging in...</>
+                ) : (
+                    <><LogIn className="h-5 w-5 text-red-500" /> Login</>
+                )}
               </Button>
-              <p className="text-sm text-center text-muted-foreground">
-                Demo credentials: any email/password combination
-              </p>
+
             </form>
-          </Card>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

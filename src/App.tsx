@@ -5,9 +5,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
-import ManagerDashboard from "./pages/ManagerDashboard";
+import ManagerDashboard from "./pages/ProjectManager/ManagerDashboard";
 import OperatorDashboard from "./pages/OperatorDashboard";
 import NotFound from "./pages/NotFound";
+import { EmployeeManagerDashboard } from "./pages/ProjectManager/Employees";
+import EmployeePerformanceDashboard from "./pages/ProjectManager/performance";
+import TeamReportsDashboard from "./pages/ProjectManager/Report";
+import EmployeeTaskTimeline from "./pages/Timeline";
 
 const queryClient = new QueryClient();
 
@@ -21,7 +25,11 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/manager" element={<ManagerDashboard />} />
+          <Route path="/manager/tasks" element={<EmployeeManagerDashboard />} />
+          <Route path="/manager/performance" element={<EmployeePerformanceDashboard/>} />
+          <Route path="/manager/reports" element={<TeamReportsDashboard/>} />
           <Route path="/operator" element={<OperatorDashboard />} />
+          <Route path="/operator/timesheet" element={<EmployeeTaskTimeline />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

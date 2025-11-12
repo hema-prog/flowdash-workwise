@@ -35,19 +35,17 @@ export const Layout = ({ children, role }: LayoutProps) => {
     if (role === "manager") {
       return [
         ...common,
-        { icon: Users, label: "Employees", path: "/manager/employees" },
-        { icon: FolderKanban, label: "Projects", path: "/manager/projects" },
-        { icon: BarChart3, label: "Performance", path: "/manager/performance" },
-        { icon: FileText, label: "Reports", path: "/manager/reports" },
+        // The path names need to be updated to match the components created earlier
+        { icon: Users, label: "Employees", path: "/manager/tasks" }, // Uses EmployeeManagerDashboard
+        { icon: BarChart3, label: "Performance", path: "/manager/performance" }, // Uses EmployeePerformanceDashboard
+        { icon: FileText, label: "Reports", path: "/manager/reports" }, // Uses TeamReportsDashboard
       ];
     }
 
     if (role === "operator") {
       return [
         ...common,
-        { icon: Clock, label: "Timesheet", path: "/operator/timesheet" },
-        { icon: FolderKanban, label: "My Tasks", path: "/operator/tasks" },
-        { icon: FileText, label: "Documents", path: "/operator/documents" },
+        { icon: Clock, label: "My Task", path: "/operator/timesheet" },
       ];
     }
 
@@ -59,56 +57,72 @@ export const Layout = ({ children, role }: LayoutProps) => {
   return (
     <div className="min-h-screen bg-background">
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-card border-r border-border">
-        <div className="flex h-full flex-col">
-          {/* Logo */}
-          <div className="flex h-16 items-center border-b border-border px-6">
-            <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              OpTrack Pro
-            </h1>
-          </div>
+<aside className="fixed left-0 top-0 z-40 h-screen w-60 bg-[#2a00b7] text-white flex flex-col shadow-lg">
+  {/* Logo */}
+  <div className="flex items-center justify-center h-20 border-b border-white/20">
+    <img
+      src="https://i0.wp.com/dotspeaks.com/wp-content/uploads/2025/07/Dotspeaks-logo_bg.png?fit=2560%2C591&ssl=1"
+      alt="Logo"
+      className="w-40"
+    />
+  </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 space-y-1 p-4">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path;
-              return (
-                <Link key={item.path} to={item.path}>
-                  <Button
-                    variant={isActive ? "default" : "ghost"}
-                    className="w-full justify-start"
-                  >
-                    <Icon className="mr-3 h-5 w-5" />
-                    {item.label}
-                  </Button>
-                </Link>
-              );
-            })}
-          </nav>
+  {/* Navigation */}
+  <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-2">
+    {navItems.map((item) => {
+      const Icon = item.icon;
+      const isActive = location.pathname === item.path;
 
-          {/* User Info & Logout */}
-          <div className="border-t border-border p-4">
-            <div className="mb-3 rounded-lg bg-muted p-3">
-              <p className="text-sm font-medium capitalize">{role}</p>
-              <p className="text-xs text-muted-foreground">
-                demo@optrack.com
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              className="w-full justify-start"
-              onClick={handleLogout}
+      return (
+        <Link key={item.path} to={item.path}>
+          <div
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium cursor-pointer transition-all duration-200 ${
+              isActive
+                ? "bg-white text-[#2a00b7]" // active: white background, blue text
+                : "text-white hover:bg-white/10"
+            }`}
+          >
+            <Icon
+              className={`h-5 w-5 transition-colors duration-200 ${
+                isActive ? "text-red-500" : "text-white"
+              }`}
+            />
+            <span
+              className={`transition-colors duration-200 ${
+                isActive ? "text-[#2a00b7]" : "text-white"
+              }`}
             >
-              <LogOut className="mr-3 h-5 w-5" />
-              Logout
-            </Button>
+              {item.label}
+            </span>
           </div>
-        </div>
-      </aside>
+        </Link>
+      );
+    })}
+  </nav>
+
+  {/* Footer Section */}
+  <div className="border-t border-white/20 p-4">
+    <div className="bg-white/10 rounded-lg p-3 text-sm mb-3">
+      <div className="flex items-center gap-2">
+        <Users className="h-4 w-4 text-white/80" />
+        <span className="capitalize">{role}</span>
+      </div>
+      <p className="text-xs text-white/70 truncate">{localStorage.getItem("userEmail")}</p>
+    </div>
+    <Button
+      variant="ghost"
+      onClick={handleLogout}
+      className="w-full flex items-center gap-2 text-white hover:bg-red-600/80 transition-colors"
+    >
+      <LogOut className="h-5 w-5" />
+      Logout
+    </Button>
+  </div>
+</aside>
+
 
       {/* Main Content */}
-      <main className="ml-64 min-h-screen">
+      <main className="lg:ml-64 min-h-screen">
         <div className="p-8">{children}</div>
       </main>
     </div>
