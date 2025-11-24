@@ -44,8 +44,8 @@ export const ensureFreshKeycloakToken = async (req: Request, res: Response, next
     const tokenUrl = `${process.env.KEYCLOAK_BASE_URL}/realms/${process.env.KEYCLOAK_REALM}/protocol/openid-connect/token`;
     const params = new URLSearchParams({
       grant_type: "refresh_token",
-      client_id: process.env.KEYCLOAK_AUDIENCE!,
-      client_secret: process.env.KEYCLOAK_AUDIENCE_SECRET!,
+      client_id: process.env.KEYCLOAK_CLIENT_ID!,
+      client_secret: process.env.KEYCLOAK_CLIENT_SECRET!,
       refresh_token: refreshToken,
     });
 
