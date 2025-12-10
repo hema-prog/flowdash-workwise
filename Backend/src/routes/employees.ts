@@ -4,6 +4,7 @@ import { auth } from "../middleware/auth.js";
 import prisma from "../db";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { kcAssignRealmRole, kcCreateUser } from "../auth/kc-users.js";
+import { startOfWeek, endOfWeek, subWeeks, subDays, format, isSameDay } from "date-fns";
 
 const router = Router();
 
@@ -420,6 +421,7 @@ router.get(
         return res.status(400).json({ error: "Employee ID is required" });
       }
 
+      // 1. Fetch Employee with ALL tasks
       const employee = await prisma.employee.findUnique({
         where: { id: employeeId },
         include: {
@@ -427,73 +429,134 @@ router.get(
             select: {
               id: true,
               email: true,
-              tasksAssigned: true, // all tasks
+              tasksAssigned: {
+                select: {
+                  id: true,
+                  title: true,
+                  status: true,
+                  priority: true,
+                  dueDate: true,
+                  assignedHours: true,
+                  createdAt: true,
+                  updatedAt: true,
+                }
+              },
             },
           },
         },
       });
 
-      if (!employee)
-        return res.status(404).json({ error: "Employee not found" });
+      if (!employee) return res.status(404).json({ error: "Employee not found" });
 
       const tasks = employee.user.tasksAssigned;
 
-      // Compute performance metrics
+      // --- DYNAMIC CALCULATIONS ---
+
       const totalTasks = tasks.length;
-      const completed = tasks.filter((t) => t.status === "DONE").length;
-      const working = tasks.filter((t) => t.status === "WORKING").length;
-      const stuck = tasks.filter((t) => t.status === "STUCK").length;
-      const pending = totalTasks - completed;
-      const completionRate =
-        totalTasks > 0 ? (completed / totalTasks) * 100 : 0;
+      const completedTasks = tasks.filter((t) => t.status === "DONE");
+      const activeTasks = tasks.filter((t) => t.status !== "DONE");
+      
+      // 1. Completion Rate
+      const completionRate = totalTasks > 0 ? (completedTasks.length / totalTasks) * 100 : 0;
 
-      const totalHours = tasks.reduce(
-        (acc, t) => acc + (t.assignedHours || 0),
-        0
-      );
+      // 2. Total Hours (Sum of assigned hours)
+      const totalHours = tasks.reduce((acc, t) => acc + (t.assignedHours || 0), 0);
 
-      // Mock charts data (you can adjust to real logic)
-      const weeklyHours = [
-        { day: "Mon", hours: 8 },
-        { day: "Tue", hours: 8 },
-        { day: "Wed", hours: 8 },
-        { day: "Thu", hours: 8 },
-        { day: "Fri", hours: 8 },
-      ];
+      // 3. Rating Calculation (Heuristic: On-time completion)
+      // If a task is DONE and updatedAt <= dueDate, it's good.
+      let onTimeCount = 0;
+      completedTasks.forEach(t => {
+        // If no due date, we give benefit of doubt
+        if (!t.dueDate) {
+          onTimeCount++;
+        } else if (new Date(t.updatedAt) <= new Date(t.dueDate)) {
+          onTimeCount++;
+        }
+      });
+      // Rating out of 5
+      const rating = completedTasks.length > 0 ? (onTimeCount / completedTasks.length) * 5 : 0;
 
-      const completionTrend = [
-        { week: "Week 1", completion: 50 },
-        { week: "Week 2", completion: 60 },
-        { week: "Week 3", completion: 70 },
-        { week: "Week 4", completion: Math.round(completionRate) },
-      ];
+      // 4. Engagement (Heuristic: % of tasks touched in the last 7 days)
+      const oneWeekAgo = subDays(new Date(), 7);
+      const recentTasks = tasks.filter(t => new Date(t.updatedAt) >= oneWeekAgo);
+      const engagement = totalTasks > 0 ? (recentTasks.length / totalTasks) * 100 : 0;
 
+      // 5. Weekly Hours Breakdown (Last 5 Days)
+      // Logic: Sum assignedHours of tasks UPDATED on that specific day
+      const weeklyHours: { day: string; hours: number }[] = [];
+      for (let i = 4; i >= 0; i--) {
+        const date = subDays(new Date(), i);
+        const dayLabel = format(date, "EEE"); // Mon, Tue...
+        
+        // Find tasks updated on this day
+        const dayEffort = tasks
+          .filter(t => isSameDay(new Date(t.updatedAt), date))
+          .reduce((acc, t) => acc + (t.assignedHours || 0), 0);
+
+        weeklyHours.push({ day: dayLabel, hours: dayEffort });
+      }
+
+      // 6. Completion Trend (Last 4 Weeks)
+      const completionTrend: { week: string; completion: number }[] = [];
+      for (let i = 3; i >= 0; i--) {
+        const weekStart = startOfWeek(subWeeks(new Date(), i));
+        const weekEnd = endOfWeek(subWeeks(new Date(), i));
+        
+        const count = tasks.filter(t => 
+          t.status === "DONE" && 
+          new Date(t.updatedAt) >= weekStart && 
+          new Date(t.updatedAt) <= weekEnd
+        ).length;
+
+        completionTrend.push({ week: `W${4-i}`, completion: count });
+      }
+
+      // 7. Radar Chart Metrics (Normalized to 100)
+      const highPriorityCount = completedTasks.filter(t => t.priority === "HIGH" ).length;
+      
       const radar = [
-        { metric: "Quality", A: 80, fullMark: 100 },
-        { metric: "Speed", A: 70, fullMark: 100 },
-        { metric: "Collaboration", A: 75, fullMark: 100 },
-        { metric: "Innovation", A: 90, fullMark: 100 },
-        { metric: "Reliability", A: 85, fullMark: 100 },
+        { metric: "Quality", A: Math.round(rating * 20), fullMark: 100 }, // Rating to %
+        { metric: "Speed", A: Math.min(100, completedTasks.length * 10), fullMark: 100 }, // Volume based
+        { metric: "Reliability", A: Math.round(completionRate), fullMark: 100 },
+        { metric: "Focus", A: Math.min(100, highPriorityCount * 20), fullMark: 100 }, // High priority handling
+        { metric: "Activity", A: Math.round(engagement), fullMark: 100 },
       ];
 
+      // 8. Inferred Skills (Based on task data)
       const skills = [
-        { skill: "React", percentage: 90 },
-        { skill: "TypeScript", percentage: 85 },
-        { skill: "UI/UX", percentage: 80 },
-      ];
+        { skill: "Task Execution", percentage: Math.round(completionRate) },
+        { skill: "Time Mgmt", percentage: Math.round(rating * 20) },
+        { skill: "Consistency", percentage: Math.round(engagement) },
+      ].sort((a, b) => b.percentage - a.percentage);
 
-      const achievements = [
-        { title: "Top Performer", subtitle: "Last Week", icon: "Trophy" },
-      ];
+      // 9. Recent Achievements (High Priority Done tasks)
+      const achievements = completedTasks
+        .filter(t => t.priority === "HIGH")
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()) // Newest first
+        .slice(0, 3)
+        .map(t => ({
+          title: "High Priority Complete",
+          subtitle: `Finished: ${t.title}`,
+          icon: "Trophy"
+        }));
 
-      const performance = {
+      // Fallback achievement if empty
+      if (achievements.length === 0 && completedTasks.length > 0) {
+        achievements.push({
+          title: "Steady Progress",
+          subtitle: `${completedTasks.length} tasks completed`,
+          icon: "Star"
+        });
+      }
+
+      const performanceData = {
         hours: totalHours,
-        hoursChange: 0,
+        hoursChange: 0, // Needs historical data to calc real change
         completionRate: Math.round(completionRate),
         completionChange: 0,
-        engagement: 80,
+        engagement: Math.round(engagement),
         engagementChange: 0,
-        rating: 4.5,
+        rating: Number(rating.toFixed(1)),
         ratingChange: 0,
         weeklyHours,
         completionTrend,
@@ -511,8 +574,9 @@ router.get(
           email: employee.user.email,
           status: employee.status,
         },
-        performance,
+        performance: performanceData,
       });
+
     } catch (err) {
       console.error("Error fetching employee performance:", err);
       res.status(500).json({ error: "Internal server error" });

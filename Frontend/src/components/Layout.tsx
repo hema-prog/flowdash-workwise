@@ -27,7 +27,7 @@ const MOBILE_LOGO_PLACEHOLDER = "D";
 export const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading, setUser } = useAuth();
+  const { user, loading, setUser,  } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   if (loading) return <div className="p-6">Loading...</div>;

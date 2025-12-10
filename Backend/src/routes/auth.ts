@@ -91,6 +91,18 @@ router.post("/login", async (req, res) => {
           role,
         },
       });
+
+      if (role === "MANAGER" || role === "OPERATOR") {
+        await prisma.employee.create({
+          data: {
+            userId: user.id,
+            name: email.split("@")[0], // placeholder name
+            roleTitle: role,
+            department: null,
+            managerId: null, // Managers have no manager initially
+          },
+        });
+      }
     }
 
     // 4️⃣ Link with ExternalIdentity table

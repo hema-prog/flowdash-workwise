@@ -23,6 +23,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+// Added Label and Input imports (assuming standard shadcn path, or use HTML fallback)
+import { Input } from "@/components/ui/input"; 
+import { Label } from "@/components/ui/label";
 import {
   Users,
   UserPlus,
@@ -31,49 +34,27 @@ import {
   Zap,
   List,
   ChevronDown,
+  Loader2,
+  Pencil, // Added pencil icon for visual hint
 } from "lucide-react";
 import axios from "axios";
 
-// --- DUMMY STATIC DATA (for new employees) ---
-const DUMMY_NEW_EMPLOYEES = [
-  {
-    id: 101,
-    name: "Daniel Smith",
-    role: "Frontend Developer",
-    department: "Engineering",
-    email: "daniel.s@comp.com",
-  },
-  {
-    id: 102,
-    name: "Emily Clark",
-    role: "UX Designer",
-    department: "Design",
-    email: "emily.c@comp.com",
-  },
-  {
-    id: 103,
-    name: "Fiona Gale",
-    role: "Data Analyst",
-    department: "Product",
-    email: "fiona.g@comp.com",
-  },
-];
-
-// Helper component for Manager/Employee details (Responsive text size)
+// Helper component for Manager/Employee details
 const DetailItem = ({ icon: Icon, label, value }) => (
   <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600">
     <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-red-500" />
     <span className="font-medium">{label}:</span>
-    <span>{value}</span>
+    <span>{value || "N/A"}</span>
   </div>
 );
+
 const backendUrl = import.meta.env.VITE_API_BASE_URL;
 
-// --- NEW SKELETON LOADER COMPONENT (Updated for responsiveness) ---
+// --- SKELETON LOADER COMPONENT ---
 const SkeletonAssignmentDashboard = ({ PRIMARY_COLOR, ACCENT_RED }) => {
-  // Replicating the structure of the two main columns
-  const ManagerSkeletonCard = () => (
-    // Responsive height/padding
+  // ... (Keep your existing skeleton code, omitted here for brevity if unchanged, 
+  // but ensure you paste the full skeleton code from previous step if copying fresh file)
+   const ManagerSkeletonCard = () => (
     <Card className="p-3 sm:p-4 border border-gray-100 shadow-sm animate-pulse h-36 sm:h-40">
       <div className="flex justify-between pb-2">
         <div className="space-y-2">
@@ -106,7 +87,6 @@ const SkeletonAssignmentDashboard = ({ PRIMARY_COLOR, ACCENT_RED }) => {
   return (
     <Layout>
       <div className="space-y-6 sm:space-y-8 p-4 sm:p-6 min-h-screen">
-        {/* Skeleton Header - Responsive Stack */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b pb-3 sm:pb-4 animate-pulse">
           <div>
             <div className="h-7 w-64 sm:w-80 bg-gray-300 rounded mb-1"></div>
@@ -115,9 +95,7 @@ const SkeletonAssignmentDashboard = ({ PRIMARY_COLOR, ACCENT_RED }) => {
           <div className="h-9 w-full sm:w-48 bg-red-200 rounded-lg mt-3 sm:mt-0"></div>
         </div>
 
-        {/* Skeleton Columns - Responsive Stack */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* 1. New Employees Skeleton Column */}
           <Card className="p-4 sm:p-6 col-span-1 border border-red-500/40 shadow-xl bg-red-50/50">
             <div className="flex items-center gap-2 mb-4 border-b pb-3 animate-pulse">
               <UserPlus className="h-5 w-5 sm:h-6 sm:w-6 text-red-400" />
@@ -130,7 +108,6 @@ const SkeletonAssignmentDashboard = ({ PRIMARY_COLOR, ACCENT_RED }) => {
             </div>
           </Card>
 
-          {/* 2. Manager List Skeleton Column */}
           <Card
             className={`p-4 sm:p-6 lg:col-span-2 border border-[${PRIMARY_COLOR}]/40 shadow-xl bg-blue-50/50`}
           >
@@ -153,31 +130,37 @@ const SkeletonAssignmentDashboard = ({ PRIMARY_COLOR, ACCENT_RED }) => {
 // --- MAIN DASHBOARD COMPONENT ---
 export default function AssignmentDashboard() {
   const [loading, setLoading] = useState(true);
-  const [newEmployees, setNewEmployees] = useState(DUMMY_NEW_EMPLOYEES);
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [newEmployees, setNewEmployees] = useState([]);
   const [managers, setManagers] = useState([]);
+  
+  // Dialog State
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [selectedManagerId, setSelectedManagerId] = useState("");
+  
+  // Editable Fields State
+  const [editName, setEditName] = useState("");
+  const [editDepartment, setEditDepartment] = useState("");
+
   const token = localStorage.getItem("token");
 
   const PRIMARY_COLOR = "#0000cc";
   const ACCENT_RED = "#D70707";
   const MAX_TEAM_CAPACITY = 10;
 
-  // Data Transformation and Fetching functions remain the same
+  // Transform functions
   const transformManagerData = (apiManagers) => {
     return apiManagers.map((manager) => {
-      const teamMembers = manager.user.ManagerEmployees.map((member) => ({
+      const rawEmployees = manager.user.ManagerEmployees || [];
+      const teamMembers = rawEmployees.map((member) => ({
         id: member.id,
         name: member.name,
         role: member.roleTitle,
         isNew: false,
       }));
-
-      const managerId = manager.user.id;
-
       return {
-        id: managerId,
+        id: manager.user.id,
         name: manager.name,
         role: manager.roleTitle,
         department: manager.department,
@@ -189,23 +172,37 @@ export default function AssignmentDashboard() {
     });
   };
 
+  const transformNewJoinerData = (apiNewJoiners) => {
+    return apiNewJoiners.map((emp) => ({
+      id: emp.id,
+      name: emp.name,
+      role: emp.roleTitle, 
+      department: emp.department,
+    }));
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(
-        `${backendUrl}/projectManager/Manager_employee_list`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      const [managersRes, newJoinersRes] = await Promise.all([
+        axios.get(`${backendUrl}/projectManager/Manager_employee_list`, {
+          headers: { Authorization: `Bearer ${token}` },
           withCredentials: true,
-        }
-      );
+        }),
+        axios.get(`${backendUrl}/projectManager/employee-assign/new-joiners`, {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true,
+        }),
+      ]);
 
-      const transformedManagers = transformManagerData(res.data.managers);
-      setManagers(transformedManagers);
+      if (managersRes.data?.managers) {
+        setManagers(transformManagerData(managersRes.data.managers));
+      }
+      if (newJoinersRes.data?.newJoiners) {
+        setNewEmployees(transformNewJoinerData(newJoinersRes.data.newJoiners));
+      }
     } catch (error) {
-      console.error("Error fetching Manager Employee List:", error);
+      console.error("Error fetching dashboard data:", error);
     } finally {
       setLoading(false);
     }
@@ -215,7 +212,6 @@ export default function AssignmentDashboard() {
     fetchData();
   }, []);
 
-  // --- Loading State Renderer (UPDATED) ---
   if (loading) {
     return (
       <SkeletonAssignmentDashboard
@@ -233,59 +229,87 @@ export default function AssignmentDashboard() {
     );
   };
 
-  const handleAssignEmployee = () => {
-    if (!selectedEmployee || !selectedManagerId) return;
-
-    const managerId = selectedManagerId;
-
-    const managerIndex = managers.findIndex((m) => m.id === managerId);
-    const targetManager = managers[managerIndex];
-
-    if (targetManager.teamSize >= targetManager.maxCapacity) {
-      alert(
-        `Assignment failed: ${targetManager.name} is already at max capacity!`
-      );
-      return;
-    }
-
-    const updatedManagers = [...managers];
-    updatedManagers[managerIndex] = {
-      ...targetManager,
-      teamSize: targetManager.teamSize + 1,
-      teamMembers: [
-        ...targetManager.teamMembers,
-        {
-          id: selectedEmployee.id,
-          name: selectedEmployee.name,
-          role: selectedEmployee.role,
-          isNew: true,
-        },
-      ],
-    };
-    setManagers(updatedManagers);
-
-    // TODO: AXIOS POST CALL FOR ASSIGNMENT GOES HERE
-
-    const updatedEmployees = newEmployees.filter(
-      (emp) => emp.id !== selectedEmployee.id
-    );
-    setNewEmployees(updatedEmployees);
-
-    setIsDialogOpen(false);
-    setSelectedEmployee(null);
-    setSelectedManagerId("");
-  };
-
+  // --- OPEN DIALOG HANDLER ---
   const openAssignmentDialog = (employee) => {
     setSelectedEmployee(employee);
+    // Pre-fill editable fields
+    setEditName(employee.name);
+    setEditDepartment(employee.department);
+    
     setSelectedManagerId("");
     setIsDialogOpen(true);
   };
 
-  // Manager Card component (Responsive updates applied)
+  // --- ASSIGN HANDLER ---
+  const handleAssignEmployee = async () => {
+    if (!selectedEmployee || !selectedManagerId) return;
+
+    const managerId = selectedManagerId;
+    const managerIndex = managers.findIndex((m) => m.id === managerId);
+    
+    if (managerIndex === -1) return;
+    const targetManager = managers[managerIndex];
+
+    if (targetManager.teamSize >= targetManager.maxCapacity) {
+      alert(`Assignment failed: ${targetManager.name} is already at max capacity!`);
+      return;
+    }
+
+    setIsAssigning(true);
+
+    try {
+      // Send updated fields (name, department) along with IDs
+      const response = await axios.post(
+        `${backendUrl}/projectManager/employee-assign/assign`, 
+        {
+          employeeId: selectedEmployee.id,
+          managerUserId: managerId,
+          name: editName,        // Sent edited name
+          department: editDepartment // Sent edited dept
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true,
+        }
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        // Optimistic UI Update
+        const updatedManagers = [...managers];
+        updatedManagers[managerIndex] = {
+          ...targetManager,
+          teamSize: targetManager.teamSize + 1,
+          teamMembers: [
+            ...targetManager.teamMembers,
+            {
+              id: selectedEmployee.id,
+              name: editName, // Use the new edited name for UI
+              role: selectedEmployee.role,
+              isNew: true, 
+            },
+          ],
+        };
+        setManagers(updatedManagers);
+
+        const updatedEmployees = newEmployees.filter(
+          (emp) => emp.id !== selectedEmployee.id
+        );
+        setNewEmployees(updatedEmployees);
+
+        setIsDialogOpen(false);
+        setSelectedEmployee(null);
+        setSelectedManagerId("");
+      }
+    } catch (error) {
+      console.error("Assignment failed:", error);
+      alert("Failed to assign employee. Please try again.");
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
   const ManagerCard = ({ manager }) => {
     const isFull = manager.teamSize >= manager.maxCapacity;
-
     return (
       <Card
         className={`p-3 sm:p-4 border ${
@@ -306,7 +330,6 @@ export default function AssignmentDashboard() {
             Manager
           </Badge>
         </CardHeader>
-
         <CardContent className="p-0 space-y-3 pt-2">
           <div className="flex items-center justify-between border-b pb-2">
             <div className="flex items-center space-x-2">
@@ -325,7 +348,6 @@ export default function AssignmentDashboard() {
               )}
             </div>
           </div>
-
           <Button
             variant="ghost"
             onClick={() => toggleManagerExpansion(manager.id)}
@@ -339,7 +361,6 @@ export default function AssignmentDashboard() {
               }`}
             />
           </Button>
-
           {manager.isExpanded && (
             <div className="mt-3 p-2 border rounded-lg bg-white max-h-32 overflow-y-auto space-y-1">
               {manager.teamMembers.length > 0 ? (
@@ -349,15 +370,10 @@ export default function AssignmentDashboard() {
                     className="flex items-center justify-between text-xs p-1 rounded-sm hover:bg-gray-50"
                   >
                     <span className="font-medium text-gray-800 flex items-center">
-                      {member.isNew && (
-                        <Zap className="h-3 w-3 mr-1 text-red-500" />
-                      )}
+                      {member.isNew && <Zap className="h-3 w-3 mr-1 text-red-500" />}
                       {member.name}
                     </span>
-                    <Badge
-                      variant="secondary"
-                      className="text-[10px] bg-gray-100 text-gray-600"
-                    >
+                    <Badge variant="secondary" className="text-[10px] bg-gray-100 text-gray-600">
                       {member.role}
                     </Badge>
                   </div>
@@ -374,7 +390,6 @@ export default function AssignmentDashboard() {
     );
   };
 
-  // New Employee Card component (Responsive updates applied)
   const EmployeeCard = ({ employee }) => (
     <Card className="p-3 sm:p-4 border border-red-200 hover:border-red-500/40 transition-all shadow-sm flex items-center justify-between">
       <div className="space-y-1">
@@ -382,19 +397,15 @@ export default function AssignmentDashboard() {
           {employee.name}
         </CardTitle>
         <DetailItem icon={ClipboardList} label="Role" value={employee.role} />
-        <DetailItem
-          icon={Users}
-          label="Dept" // Shortened label for mobile
-          value={employee.department}
-        />
+        <DetailItem icon={Users} label="Dept" value={employee.department} />
       </div>
       <Button
         onClick={() => openAssignmentDialog(employee)}
         className={`flex items-center gap-1 text-white shadow-md hover:opacity-90 h-8 text-xs sm:text-sm px-3`}
         style={{ backgroundColor: PRIMARY_COLOR }}
       >
-        <ArrowRight className="h-4 w-4" />
-        Assign
+        <Pencil className="h-3 w-3 mr-1" /> {/* Pencil Icon added */}
+        Assign & Edit
       </Button>
     </Card>
   );
@@ -402,29 +413,26 @@ export default function AssignmentDashboard() {
   return (
     <Layout>
       <div className="space-y-6 sm:space-y-8 p-4 sm:p-6 min-h-screen">
-        {/* Header - Responsive Stack */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b pb-3 sm:pb-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: PRIMARY_COLOR }}>
               Employee Assignment Dashboard
             </h1>
             <p className="text-sm sm:text-base text-gray-500">
-              Assign new employees to the appropriate team manager after
-              reviewing team capacity.
+              Assign new employees to the appropriate team manager. You can edit their details during assignment.
             </p>
           </div>
           <Button
             className={`gap-2 text-white rounded-lg shadow-md hover:opacity-90 text-sm h-9 w-full sm:w-auto mt-3 sm:mt-0`}
             style={{ backgroundColor: ACCENT_RED }}
+            onClick={fetchData}
           >
             <UserPlus className="h-4 w-4" />
-            New Assignments ({newEmployees.length})
+            Refresh List
           </Button>
         </div>
 
-        {/* --- Main Dashboard Content: Columns --- */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* 1. New Employees Column (Source - Red/Accent) */}
           <Card className="p-4 sm:p-6 col-span-1 border border-red-500/40 shadow-xl bg-red-50">
             <div className="flex items-center gap-2 mb-4 border-b pb-3">
               <UserPlus className="h-5 w-5 text-red-600" />
@@ -432,7 +440,6 @@ export default function AssignmentDashboard() {
                 New Joiners ({newEmployees.length})
               </h2>
             </div>
-            {/* Scrollable Area - Fixed height on mobile to prevent consuming screen space */}
             <div className="space-y-3 sm:space-y-4 max-h-[400px] lg:max-h-[600px] overflow-y-auto pr-2">
               {newEmployees.length > 0 ? (
                 newEmployees.map((emp) => (
@@ -444,42 +451,25 @@ export default function AssignmentDashboard() {
                   <p className="text-base font-semibold text-green-700">
                     All new employees have been assigned!
                   </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Ready for the next batch.
-                  </p>
                 </div>
               )}
             </div>
           </Card>
 
-          {/* 2. Manager List Column (Target - Blue/Primary) */}
-          <Card
-            className={`p-4 sm:p-6 lg:col-span-2 border border-[${PRIMARY_COLOR}]/40 shadow-xl bg-blue-50`}
-          >
+          <Card className={`p-4 sm:p-6 lg:col-span-2 border border-[${PRIMARY_COLOR}]/40 shadow-xl bg-blue-50`}>
             <div className="flex items-center gap-2 mb-4 border-b pb-3">
               <Users className="h-5 w-5" style={{ color: PRIMARY_COLOR }} />
-              <h2
-                className="text-lg sm:text-xl font-bold"
-                style={{ color: PRIMARY_COLOR }}
-              >
+              <h2 className="text-lg sm:text-xl font-bold" style={{ color: PRIMARY_COLOR }}>
                 Available Managers ({managers.length})
               </h2>
             </div>
-            {/* Scrollable Grid Area - Fixed height on mobile */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] lg:max-h-[600px] overflow-y-auto pr-2">
               {managers.length > 0 ? (
-                managers.map((manager) => (
-                  <ManagerCard key={manager.id} manager={manager} />
-                ))
+                managers.map((manager) => <ManagerCard key={manager.id} manager={manager} />)
               ) : (
                 <div className="col-span-full text-center p-8 bg-white rounded-lg border border-gray-300">
                   <List className="h-6 w-6 text-gray-500 mx-auto mb-3" />
-                  <p className="text-base font-semibold text-gray-700">
-                    No Managers Reporting to you Found.
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Please check your system configuration.
-                  </p>
+                  <p className="text-base font-semibold text-gray-700">No Managers Found.</p>
                 </div>
               )}
             </div>
@@ -487,38 +477,65 @@ export default function AssignmentDashboard() {
         </div>
       </div>
 
-      {/* --- Assignment Dialog (Modal) - RESPONSIVE --- */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        {/* Dialog Content takes up more space on small screens */}
+      {/* --- UPDATED ASSIGNMENT DIALOG WITH EDITABLE FIELDS --- */}
+      <Dialog open={isDialogOpen} onOpenChange={(open) => !isAssigning && setIsDialogOpen(open)}>
         <DialogContent className="w-11/12 max-w-[95vw] sm:max-w-lg bg-white rounded-xl shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl sm:text-2xl" style={{ color: PRIMARY_COLOR }}>
-              Assign Employee to Manager
+              Assign & Update Employee
             </DialogTitle>
             <CardDescription className="pt-2 text-sm">
-              Confirm the manager for **{selectedEmployee?.name}** (
-              {selectedEmployee?.role}).
+              Review and update details for **{selectedEmployee?.name}** before assigning.
             </CardDescription>
           </DialogHeader>
 
           <div className="space-y-4 pt-4">
-            <div className="flex items-center justify-between p-3 rounded-md border bg-gray-50 text-sm">
-              <span className="font-medium text-gray-700">Employee:</span>
-              <Badge className="bg-red-100 text-red-700 border border-red-300 text-xs">
-                {selectedEmployee?.name}
+            
+            {/* 1. Name Input (Editable) */}
+            <div className="space-y-2">
+              <Label htmlFor="empName" className="text-sm font-medium text-gray-700">
+                Full Name
+              </Label>
+              <Input
+                id="empName"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="focus-visible:ring-blue-600"
+              />
+            </div>
+
+            {/* 2. Department Input (Editable) */}
+            <div className="space-y-2">
+              <Label htmlFor="empDept" className="text-sm font-medium text-gray-700">
+                Department
+              </Label>
+              <Input
+                id="empDept"
+                value={editDepartment}
+                onChange={(e) => setEditDepartment(e.target.value)}
+                className="focus-visible:ring-blue-600"
+              />
+            </div>
+
+             {/* 3. Role (Read Only - Badge) */}
+             <div className="flex items-center justify-between p-3 rounded-md border bg-gray-50 text-sm mt-2">
+              <span className="font-medium text-gray-700">Current Role:</span>
+              <Badge variant="outline" className="bg-white text-gray-600 border-gray-300">
+                {selectedEmployee?.role}
               </Badge>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                Select Manager
-              </label>
+
+            {/* 4. Manager Select */}
+            <div className="space-y-2 pt-2">
+              <Label className="text-sm font-medium">Assign To Manager</Label>
               <Select
                 onValueChange={setSelectedManagerId}
                 value={selectedManagerId}
+                disabled={isAssigning}
               >
-                <SelectTrigger className="w-full h-10">
-                  <SelectValue placeholder="Choose a manager to assign to" />
+                <SelectTrigger className="w-full h-10 border-blue-200 focus:ring-blue-500">
+                  <SelectValue placeholder="Choose a manager..." />
                 </SelectTrigger>
                 <SelectContent>
                   {managers.map((manager) => (
@@ -527,8 +544,7 @@ export default function AssignmentDashboard() {
                       value={manager.id}
                       disabled={manager.teamSize >= manager.maxCapacity}
                     >
-                      {manager.name} ({manager.role}) - Team Size:{" "}
-                      {manager.teamSize}/{manager.maxCapacity}
+                      {manager.name} ({manager.role}) - {manager.teamSize}/{manager.maxCapacity}
                       {manager.teamSize >= manager.maxCapacity && " (Full)"}
                     </SelectItem>
                   ))}
@@ -538,20 +554,34 @@ export default function AssignmentDashboard() {
           </div>
 
           <DialogFooter className="mt-6">
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="text-sm h-9">
+            <Button 
+                variant="outline" 
+                onClick={() => setIsDialogOpen(false)} 
+                className="text-sm h-9"
+                disabled={isAssigning}
+            >
               Cancel
             </Button>
             <Button
               onClick={handleAssignEmployee}
-              disabled={!selectedManagerId}
+              disabled={!selectedManagerId || isAssigning || !editName || !editDepartment}
               className={`gap-2 text-white shadow-md text-sm h-9`}
               style={{
                 backgroundColor: PRIMARY_COLOR,
-                opacity: selectedManagerId ? 1 : 0.6,
+                opacity: (selectedManagerId && !isAssigning) ? 1 : 0.6,
               }}
             >
-              <ArrowRight className="h-4 w-4" />
-              Confirm Assignment
+              {isAssigning ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <ArrowRight className="h-4 w-4" />
+                  Confirm Update & Assign
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
