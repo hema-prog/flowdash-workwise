@@ -9,9 +9,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 enum Role {
@@ -152,7 +151,7 @@ model UserAttendance {
   user      User     @relation("UserAttendances", fields: [userId], references: [id], onDelete: Cascade)
 
   // 📅 Day-based tracking (VERY important)
-  workDate  DateTime  @db.Date // store date at 00:00:00 (server timezone)
+  workDate DateTime
 
   // ⏱ Core times
   loginTime  DateTime
