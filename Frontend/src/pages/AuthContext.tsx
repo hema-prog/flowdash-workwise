@@ -6,7 +6,7 @@ import axios from "axios";
 interface User {
   id: string;
   email: string;
-  role: "operator" | "manager" | "project_manager";
+  role: "operator" | "manager" | "project_manager" | "admin" | "hr";
 }
 
 interface AuthContextType {
@@ -19,6 +19,45 @@ interface AuthContextType {
   setUser: (user: User | null) => void;
   setLoginTime: (time: Date | null) => void;
 }
+export const ROLE_ROUTES: Record<string, string[]> = {
+  admin: [
+    "/dashboard",
+  "/admin",
+  "/admin/users",
+  "/admin/create-user",
+],
+
+
+  manager: [
+    "/dashboard",
+    "/manager",
+     "/manager/employees",
+  "/manager/performance",
+    "/manager/reports",
+    "/manager/hrm",
+    "/timesheet"
+  ],
+
+  project_manager: [
+    "/dashboard",
+    "/project_manager",
+    "/project_manager/employee-assignment",
+    "/timesheet"
+  ],
+
+  operator: [
+    "/dashboard",
+    "/operator",
+    "/timesheet",
+    "/operator/hrm"
+  ],
+
+  hr: [
+    "/dashboard",
+    "/operator/hrm",
+    "/manager/hrm"
+  ],
+};
 
 /* -------------------- CONTEXT -------------------- */
 
@@ -47,19 +86,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       try {
+        
         const res = await axios.get(
-          `${import.meta.env.VITE_API_BASE_URL}/auth/me`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-            withCredentials: true,
-          }
-        );
+  `${import.meta.env.VITE_API_BASE_URL}/auth/me`,
+  {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }
+);
 
-        setUser(res.data);
+// Normalize role from backend (ADMIN, MANAGER, etc.)
+let normalizedRole = res.data.role.toLowerCase();
+normalizedRole = normalizedRole
+  .replace("project manager", "project_manager")
+  .replace("project-manager", "project_manager");
+
+setUser({
+  id: res.data.id,
+  email: res.data.email,
+  role: normalizedRole as
+    | "admin"
+    | "manager"
+    | "project_manager"
+    | "operator"
+    | "hr",
+});
 
         // ❗ DO NOT set loginTime here
         // This effect runs on refresh / app mount
       } catch (error) {
+        console.error("Failed to fetch user from /auth/me:", error);
         setUser(null);
         setLoginTime(null);
       } finally {
@@ -93,4 +150,20 @@ export const useAuth = () => {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
+};
+export const canAccessRoute = (role: string, path: string): boolean => {
+  const allowedRoutes = ROLE_ROUTES[role];
+  if (!allowedRoutes) return false;
+
+  return allowedRoutes.some(route =>
+  path === route || path.startsWith(route + "/")
+);
+
+};
+export const ROLE_DASHBOARD_ROUTE: Record<string, string> = {
+  admin: "/admin",
+  manager: "/manager",
+  project_manager: "/project_manager",
+  operator: "/operator",
+  hr: "/operator/hrm",
 };

@@ -76,7 +76,7 @@ interface Task {
   fileUrl_operator?: string;
 }
 
-const COLOR_PRIMARY = "#0000cc"; // Deep Blue
+const COLOR_PRIMARY = "#7e18d8"; // Purple (126, 24, 216)
 const COLOR_ACCENT_ICON = "text-red-500"; // Red
 const COLOR_SUCCESS = "#10b981"; // Green for completion
 
@@ -178,7 +178,7 @@ const TaskRowSkeleton = () => (
 
     {/* Comments Button (Mobile: Bottom right or its own row) */}
     <div className="flex justify-start w-full order-5 lg:order-none lg:justify-center items-center">
-      <div className="h-6 w-6 bg-blue-200 rounded-md"></div>
+      <div className="h-6 w-6 bg-purple-200 rounded-md"></div>
     </div>
   </div>
 );
@@ -202,7 +202,7 @@ const SkeletonTaskHub = () => (
         <div className="p-0">
           <CardHeader className="p-0 pb-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2">
-              <div className="h-6 w-40 sm:w-48 bg-blue-200 rounded mb-2 sm:mb-0"></div>
+              <div className="h-6 w-40 sm:w-48 bg-purple-200 rounded mb-2 sm:mb-0"></div>
               <div className="h-8 w-full sm:w-[180px] bg-gray-100 rounded"></div>
             </div>
             <div className="h-3 w-full bg-gray-100 rounded"></div>
@@ -545,7 +545,7 @@ const TaskTimelineView = ({ role }: { role: any }) => {
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <Upload className="h-4 w-4 sm:h-5 sm:w-5 cursor-pointer text-blue-600 hover:text-blue-800" />
+                      <Upload className="h-4 w-4 sm:h-5 sm:w-5 cursor-pointer text-purple-600 hover:text-purple-800" />
                     </a>
                   ) : (
                     <Upload className="h-4 w-4 sm:h-5 sm:w-5 cursor-pointer text-gray-400" />
@@ -605,7 +605,7 @@ const TaskTimelineView = ({ role }: { role: any }) => {
               <TooltipProvider delayDuration={150}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="hidden lg:block text-sm text-gray-600 truncate max-w-[180px] cursor-pointer hover:text-blue-700">
+                    <div className="hidden lg:block text-sm text-gray-600 truncate max-w-[180px] cursor-pointer hover:text-purple-700">
                       {task.notes || "No notes"}
                     </div>
                   </TooltipTrigger>
@@ -640,7 +640,7 @@ const TaskTimelineView = ({ role }: { role: any }) => {
                   }}
                   className="hover:bg-gray-100 p-2 rounded-md transition"
                 >
-                  <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                  <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
                 </button>
               </div>
             </div>
@@ -822,7 +822,7 @@ const TaskTimelineView = ({ role }: { role: any }) => {
                           : c.seenByManager;
 
                       const tickColor = seen
-                        ? "text-blue-500"
+                        ? "text-purple-500"
                         : "text-gray-400";
 
                       return (

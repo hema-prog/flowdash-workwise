@@ -14,9 +14,10 @@ datasource db {
 }
 
 enum Role {
-  PROJECT_MANAGER
+  ADMIN
   MANAGER
   OPERATOR
+  PROJECT_MANAGER
 }
 
 enum TaskStatus {
@@ -39,13 +40,13 @@ model User {
   role             Role
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
+  enabled          Boolean       @default(true)
   // 1:1 optional employee profile (only for operators you show in "employees")
   ManagerEmployees Employee[]    @relation("ManagerEmployees")
   // tasks created by (if manager)
   tasksCreated     Task[]        @relation("TasksCreatedBy")
   // tasks assigned to (if operator)
-  tasksAssigned    Task[]        @relation("TasksAssignedTo", fields: [], references: [])
-  Employee         Employee[]
+  tasksAssigned Task[] @relation("TasksAssignedTo")
   TaskComment      TaskComment[]
 
   ExternalIdentity ExternalIdentity[]
@@ -78,7 +79,7 @@ model Task {
 
   fileUrl_manager  String?
   fileUrl_operator String?
-  isDeleted Boolean @default(false)
+  isDeleted        Boolean  @default(false)
   // relations
   createdById      String?
   createdBy        User?   @relation("TasksCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)

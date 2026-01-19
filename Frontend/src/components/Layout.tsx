@@ -54,15 +54,16 @@ export const Layout = ({ children }: LayoutProps) => {
     ];
 
     if (role === "manager") {
-        return [
-          ...common,
-          { icon: Users, label: "Employees", path: "/tasks" },
-          { icon: Clock, label: "My Task", path: "/timesheet" },
-          { icon: BarChart3, label: "Performance", path: "/performance" },
-          { icon: FileText, label: "Reports", path: "/manager/reports" },
-          { icon: PersonStanding, label: "My HRM", path: "/manager/hrm" },
-        ];
-    }
+  return [
+    ...common,
+    { icon: Users, label: "Employees", path: "/manager/employees" },
+    { icon: Clock, label: "My Task", path: "/timesheet" },
+    { icon: BarChart3, label: "Performance", path: "/manager/performance" },
+    { icon: FileText, label: "Reports", path: "/manager/reports" },
+    { icon: PersonStanding, label: "My HRM", path: "/manager/hrm" },
+  ];
+}
+
 
     if (role === "project_manager") {
         return [
@@ -88,8 +89,8 @@ export const Layout = ({ children }: LayoutProps) => {
   const navItems = getNavItems();
 
   return (
-    // Set min-h-screen on the overall container
-    <div className="min-h-screen bg-background"> 
+    // Set min-h-screen on the overall container - use transparent for manager/operator pages
+    <div className={`min-h-screen ${location.pathname.includes("/manager") || location.pathname.includes("/operator") ? "bg-transparent" : "bg-background"}`}> 
       
       {/* 🔴 MOBILE HEADER (Hamburger left, Logo right) 🔴 */}
       <header className="lg:hidden sticky top-0 z-50 bg-white shadow-md p-4 flex items-center justify-between">
@@ -128,7 +129,11 @@ export const Layout = ({ children }: LayoutProps) => {
         <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-2">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path;
+            const isDashboard = item.path === `/${role}`;
+const isActive = isDashboard
+  ? location.pathname === `/${role}`
+  : location.pathname.startsWith(item.path);
+
 
             return (
               <Link key={item.path} to={item.path} onClick={() => setIsSidebarOpen(false)}>
@@ -189,14 +194,37 @@ export const Layout = ({ children }: LayoutProps) => {
 
       {/* 🟢 MAIN CONTENT - **Handles the left margin offset on large screens** 🟢 */}
       {/* Scrollable content area starts here */}
-      <main className="lg:ml-60 flex-1 overflow-y-auto min-h-screen">
+      <main className="lg:ml-60 flex-1 overflow-y-auto min-h-screen bg-transparent">
         <div
           className={
-            location.pathname.includes("/hrm")
+            location.pathname.includes("/manager") || location.pathname.includes("/operator")
+              ? "p-0" 
+              : location.pathname.includes("/hrm")
               ? "pt-6 pl-2 pr-6" 
               : "p-4 sm:p-6 md:p-8"
           }
         >
+        {/* 🔹 Logged-in User Info (Visual Auth Proof) - Hidden for Manager/Operator pages 🔹 */}
+{!location.pathname.includes("/manager") && !location.pathname.includes("/operator") && (
+<div className="mb-6 flex items-center justify-between rounded-lg border bg-white p-4 shadow-sm">
+  <div>
+    <p className="text-sm text-gray-500">Logged in as</p>
+    <p className="font-semibold text-gray-900">{user.email}</p>
+  </div>
+
+  <span
+  className={`px-3 py-1 rounded-full text-xs font-semibold ${
+    user.role === "manager"
+      ? "bg-purple-100 text-purple-700"
+      : user.role === "project_manager"
+      ? "bg-purple-100 text-purple-700"
+      : "bg-green-100 text-green-700"
+  }`}
+>
+  {user.role.replace("_", " ").toUpperCase()}
+</span>
+</div>
+)}
           {children}
         </div>
       </main>

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-const JWT_SECRET = "dev_jwt_secret_key";
+import { JWT_SECRET } from "../config";
 
 import axios from "axios";
 export function auth(req: Request, res: Response, next: NextFunction) {

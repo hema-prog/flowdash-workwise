@@ -9,14 +9,15 @@ const router = Router();
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-const SUPABASE_URL = process.env.SUPABASE_URL!;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY!;
+let supabase: any = null;
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error("Supabase environment variables are not set");
+if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
+  supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_ANON_KEY
+  );
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 //! FOR TIME CALCULATION
 
@@ -63,13 +64,17 @@ router.post(
     let fileUrl: string | null = null;
 
     if (req.file) {
-      const fileName = `${Date.now()}_${req.file.originalname}`;
-      console.log(req.file.mimetype);
-      const { error } = await supabase.storage
-        .from("ManagerFiles")
-        .upload(fileName, req.file.buffer, {
-          contentType: req.file.mimetype,
-        });
+  if (!supabase) {
+    return res.status(500).json({ error: "File storage not configured" });
+  }
+
+  const fileName = `${Date.now()}_${req.file.originalname}`;
+  const { error } = await supabase.storage
+    .from("ManagerFiles")
+    .upload(fileName, req.file.buffer, {
+      contentType: req.file.mimetype,
+    });
+
       if (error) return res.status(500).json({ error: "file upload failed" });
 
       const { data } = supabase.storage
@@ -84,7 +89,9 @@ router.post(
         notes,
         dueDate: dueDate ? new Date(dueDate) : null,
         priority,
-        assignedHours: parseInt(assignedHours) || null,
+        assignedHours:
+  assignedHours !== undefined ? parseInt(assignedHours) : null,
+
         createdById: req.user!.id,
         assigneeId: assigneeId || null,
         // optionally store fileUrl in your model if you add a column
@@ -194,7 +201,9 @@ router.patch(
 
 // List tasks (manager: all; operator: mine)
 router.get("/", auth, async (req, res) => {
-  const isManager = req.user!.role === "MANAGER";
+  const isManager =
+  req.user!.role === "MANAGER" || req.user!.role === "PROJECT_MANAGER";
+
   const where = isManager ? {isDeleted: false} : { assigneeId: req.user!.id, isDeleted: false };
 
   const { assigneeId, status } = req.query;
@@ -407,7 +416,7 @@ router.delete(
   }
 );
 
-router.get("/Dashboard", auth, requireRole("OPERATOR"), async (req, res) => {
+router.get("/dashboard", auth, requireRole("OPERATOR"), async (req, res) => {
   try {
     const userId = req.user!.id;
 
@@ -496,7 +505,7 @@ Date.prototype.getWeekNumber = function (): number {
 // ----------------------------
 // GET: Fetch tasks for employee
 // ----------------------------
-router.get("/EmployeeTasks", auth, async (req, res) => {
+router.get("/employeeTasks", auth, async (req, res) => {
   try {
     const employeeId = req.user!.id;
 
@@ -633,9 +642,9 @@ router.post(
     try {
       const { taskId } = req.params;
       const file = req.file;
-      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-        throw new Error("Supabase environment variables are not set");
-      }
+      if (!supabase) {
+  return res.status(500).json({ error: "File storage not configured" });
+}
 
       if (!taskId)
         return res.status(400).json({ error: "Task ID is required" });

@@ -1,24 +1,22 @@
-import express, { Router } from "express";
+import { Router } from "express";
 import { auth } from "../middleware/auth";
 import prisma from "../db";
-import multer from "multer";
 import { createClient } from "@supabase/supabase-js";
 import { requireRole } from "../middleware/role";
 
 const router = Router();
 
-const upload = multer({ storage: multer.memoryStorage() });
+let supabase: any = null;
 
-const SUPABASE_URL = process.env.SUPABASE_URL!;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY!;
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error("Supabase environment variables are not set");
+if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
+  supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_ANON_KEY
+  );
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-router.get("/ManagerTasks", auth, async (req, res) => {
+router.get("/ManagerTasks", auth,requireRole("MANAGER", "PROJECT_MANAGER"), async (req, res) => {
   try {
     const employeeId = req.user!.id;
 
@@ -32,41 +30,12 @@ router.get("/ManagerTasks", auth, async (req, res) => {
     });
 
     // 2. Map manager files from Supabase
-    const tasksWithFiles = await Promise.all(
-      tasks.map(async (task) => {
-        // Manager files (from bucket: ManagerFiles, folder: task.id)
-        const { data: managerFiles } = await supabase.storage
-          .from("projectManagerFiles")
-          .list(task.id, { limit: 10 });
+    const tasksWithFiles = tasks.map((task) => ({
+  ...task,
+  managerFiles: [],
+  employeeFiles: [],
+}));
 
-        const managerFileUrls =
-          managerFiles?.map(
-            (file) =>
-              supabase.storage
-                .from("projectManagerFiles")
-                .getPublicUrl(`${task.id}/${file.name}`).data.publicUrl
-          ) || [];
-
-        // Employee uploaded files (from bucket: OperationsDocuments)
-        const { data: employeeFiles } = await supabase.storage
-          .from("ManagerAddedDocuments")
-          .list(task.id, { limit: 10 });
-
-        const employeeFileUrls =
-          employeeFiles?.map(
-            (file) =>
-              supabase.storage
-                .from("ManagerAddedDocuments")
-                .getPublicUrl(`${task.id}/${file.name}`).data.publicUrl
-          ) || [];
-
-        return {
-          ...task,
-          managerFiles: managerFileUrls,
-          employeeFiles: employeeFileUrls,
-        };
-      })
-    );
 
     res.json({ tasks: tasksWithFiles });
   } catch (err) {
@@ -78,7 +47,7 @@ router.get("/ManagerTasks", auth, async (req, res) => {
 // Employment Assignment
 
 //* Get the user and Manager list
-router.get("/Manager_employee_list", auth, async (req, res) => {
+router.get("/Manager_employee_list", auth,requireRole("MANAGER", "PROJECT_MANAGER"), async (req, res) => {
   const userId = req.user!.id;
 
   try {

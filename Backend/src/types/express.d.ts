@@ -3,7 +3,7 @@
 // What your JWT contains:
 export type JWTPayload = {
   id: string;
-  role: "MANAGER" | "OPERATOR" | "PROJECT_MANAGER";
+  role: "MANAGER" | "OPERATOR" | "PROJECT_MANAGER" | "ADMIN" | "HR";
   email: string;
 };
 

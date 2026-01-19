@@ -2,10 +2,9 @@ import { Router } from "express";
 import * as bcrypt from "bcrypt";
 import * as jwt from "jsonwebtoken";
 import prisma from "../db";
-import { ensureFreshKeycloakToken } from "../middleware/validateKeycloakBeforeHRM";
 import axios from "axios";
-import { auth } from "../middleware/auth";
-const JWT_SECRET = "dev_jwt_secret_key";
+import { requireLocalAuth } from "../middleware/requireLocalAuth";
+import { JWT_SECRET, BCRYPT_ROUNDS } from "../config";
 
 const router = Router();
 
@@ -21,10 +20,8 @@ router.post("/register", async (req, res) => {
     if (!email || !password || !role)
       return res.status(400).json({ error: "email, password, role required" });
 
-    const hash = await bcrypt.hash(
-      password,
-      Number(process.env.BCRYPT_ROUNDS) || 10
-    );
+const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
     const user = await prisma.user.create({
       data: { email, password: hash, role },
     });
@@ -63,6 +60,7 @@ router.post("/login", async (req, res) => {
     if (!user || !user.password) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
+    
 
     // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
@@ -94,120 +92,11 @@ router.post("/login", async (req, res) => {
   }
 });
 
-
-router.post("/logout", async (req, res) => {
-  try {
-    const refreshToken = req.cookies["keycloak_refresh_token"];
-
-    if (!refreshToken) {
-      return res.status(400).json({ error: "No refresh token found" });
-    }
-
-    const logoutUrl = `${process.env.KEYCLOAK_BASE_URL}/realms/${process.env.KEYCLOAK_REALM}/protocol/openid-connect/logout`;
-
-    const body = new URLSearchParams({
-      client_id: process.env.KEYCLOAK_PROVISIONER_CLIENT_ID!,
-      client_secret: process.env.KEYCLOAK_PROVISIONER_CLIENT_SECRET!,
-      refresh_token: refreshToken,
-    });
-
-    await axios.post(logoutUrl, body, {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-
-    //  Remove cookies
-    res.clearCookie("keycloak_token", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-    });
-    res.clearCookie("keycloak_refresh_token", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-    });
-
-    res.clearCookie("token", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-    });
-
-    const today = getTodayDate();
-    const now = new Date();
-
-    const userId = req.user?.id;
-
-    if (!userId) {
-      return res.status(500).json({ error: "User not found" });
-    }
-
-    /* ---------------- ATTENDANCE LOGOUT ---------------- */
-
-    const attendance = await prisma.userAttendance.findUnique({
-      where: {
-        userId_workDate: {
-          userId,
-          workDate: today,
-        },
-      },
-      include: {
-        breakLogs: true,
-      },
-    });
-
-    if (attendance && attendance.isActiveSession) {
-      let totalBreakMinutes = attendance.totalBreakMinutes;
-
-      // 🔴 Edge case: user logs out during a break
-      const openBreak = attendance.breakLogs
-        .filter(b => !b.breakEnd)
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
-
-      if (openBreak) {
-        const breakMinutes = Math.ceil(
-          (now.getTime() - openBreak.breakStart.getTime()) / 60000
-        );
-
-        await prisma.breakLog.update({
-          where: { id: openBreak.id },
-          data: { breakEnd: now },
-        });
-
-        totalBreakMinutes += breakMinutes;
-      }
-
-      const totalWorkedMinutes = Math.max(
-        Math.floor(
-          (now.getTime() - attendance.loginTime.getTime()) / 60000
-        ) - totalBreakMinutes,
-        0
-      );
-
-      await prisma.userAttendance.update({
-        where: { id: attendance.id },
-        data: {
-          logoutTime: now,
-          totalBreakMinutes,
-          totalWorkingMinutes: totalWorkedMinutes,
-          isActiveSession: false,
-          breakStartTime: null,
-          breakEndTime: null,
-        },
-      });
-
-      console.log("✅ Attendance closed:", attendance.id);
-    }
-
-
-    return res.json({ message: "Logged out successfully" });
-  } catch (err: any) {
-    console.error("Logout Error:", err.response?.data || err.message);
-    return res.status(500).json({
-      error: err?.message || "Failed to log out",
-    });
-  }
+router.post("/logout", async (_req, res) => {
+  return res.json({ message: "Logged out successfully" });
 });
+
+
 
 router.post("/token", async (req, res) => {
   try {
@@ -229,19 +118,39 @@ router.post("/token", async (req, res) => {
   }
 });
 
-router.get("/me", auth, async (req, res) => {
+router.get("/me", requireLocalAuth, async (req, res) => {
   try {
-    const user = req.user;
-    if (!user) {
-      return res.status(401).json({ error: "Unauthorized" });
+    console.log("📍 /auth/me endpoint called");
+    console.log("Request user object:", req.user);
+
+    const userId = (req.user as any)?.id;
+
+    if (!userId) {
+      console.error("❌ No user ID found in token");
+      return res.status(401).json({ error: "Unauthorized - No user ID in token" });
     }
+
+    // Fetch fresh user data from database
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      console.error("❌ User not found in database:", userId);
+      return res.status(401).json({ error: "User not found" });
+    }
+
+    console.log("✅ User fetched successfully:", { id: user.id, email: user.email, role: user.role });
 
     return res.json({
       id: user.id,
       email: user.email,
       role: user.role,
     });
-  } catch (error) { }
+  } catch (error) {
+    console.error("❌ Error in /auth/me:", error);
+    return res.status(500).json({ error: "Failed to fetch user" });
+  }
 });
 
 // router.get("/go-to-hrm", ensureFreshKeycloakToken, async (req, res) => {
@@ -262,45 +171,5 @@ router.get("/me", auth, async (req, res) => {
 //     res.status(500).json({ error: "Failed to redirect to HRM" });
 //   }
 // });
-
-
-router.get("/go-to-hrm", ensureFreshKeycloakToken, async (req, res) => {
-  try {
-    const backend_url = process.env.HRM_BACKEND_ROUTE;
-    const accessToken: any = req.validAccessToken;
-
-    const payload: any = jwt.decode(accessToken);
-    const roles = payload.realm_access?.roles || [];
-
-    const tenantRole = roles.find((r: string) =>
-      r.startsWith("TENANT_")
-    );
-
-    if (!tenantRole) {
-      return res.status(403).json({ error: "Tenant role missing" });
-    }
-
-    //TODO: in future change this to the database -> TenantCode
-    const TENANT_ROLE_TO_CODE: Record<string, string> = {
-      TENANT_DOTSPEAK: "DotSpeak_NGO-11-25-002"
-    };
-
-    const tenantCode = TENANT_ROLE_TO_CODE[tenantRole];
-
-    if (!tenantCode) {
-      return res.status(403).json({ error: "Tenant not mapped" });
-    }
-
-    // SAME HRM API AS BEFORE
-    const hrmRedirectUrl =
-      `${backend_url}/api/tenant/sso-login/${tenantCode}?token=${accessToken}&sso=1`;
-
-    res.json({ redirectUrl: hrmRedirectUrl });
-  } catch (err: any) {
-    console.error("Redirect failed:", err.message);
-    res.status(500).json({ error: "Failed to redirect to HRM" });
-  }
-});
-
 
 export default router;

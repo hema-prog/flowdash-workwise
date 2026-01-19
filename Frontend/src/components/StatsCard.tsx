@@ -27,41 +27,35 @@ export const StatsCard = ({
   valueClassName,
 }: StatsCardProps) => {
   const colorClasses = {
-    primary: "bg-primary/10 text-primary",
-    success: "bg-success/10 text-success",
-    warning: "bg-warning/10 text-warning",
-    destructive: "bg-destructive/10 text-destructive",
+    primary: "bg-indigo-600/40 text-indigo-300",
+    success: "bg-emerald-600/40 text-emerald-300",
+    warning: "bg-amber-600/40 text-amber-300",
+    destructive: "bg-red-600/40 text-red-300",
   };
   
-  // 🎯 NEW RESPONSIVE DEFAULTS FOR ICON CONTAINER 🎯
-  // On mobile (default): p-2 (small padding)
-  // On sm/desktop: p-3 (original padding)
-  const iconContainerClass = `p-2 sm:p-3 ${colorClasses[color]}`;
+  // Icon container with glassmorphism
+  const iconContainerClass = `p-2 sm:p-3 ${colorClasses[color]} backdrop-blur rounded-lg border border-indigo-500/20`;
 
-  // On mobile (default): h-5 w-5 (small icon)
-  // On sm/desktop: h-6 w-6 (original icon size)
+  // Responsive icon sizing
   const defaultIconClass = "h-5 w-5 sm:h-6 sm:w-6"; 
 
-  // On mobile (default): text-2xl (from OperatorDashboard)
-  // On sm/desktop: text-3xl (from OperatorDashboard)
+  // Responsive value sizing
   const defaultValueClass = "text-2xl sm:text-3xl"; 
 
   return (
-    // Card padding is reduced slightly on mobile (p-4) if you use p-4 in OperatorDashboard
-    // Added h-full to Card for alignment consistency across the grid
-    <Card className="p-4 sm:p-6 h-full flex flex-col justify-between hover:shadow-lg transition-shadow"> 
+    <div className="p-4 sm:p-6 h-full rounded-2xl border border-indigo-500/20 bg-gradient-to-br from-purple-900/40 to-indigo-900/40 backdrop-blur-xl shadow-lg hover:shadow-indigo-500/20 hover:border-indigo-500/40 transition-all hover:scale-105 duration-300 flex flex-col justify-between group">
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          {/* Title is small on mobile */}
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          {/* Title styling */}
+          <p className="text-xs sm:text-sm font-medium text-gray-400 group-hover:text-gray-300 transition-colors">{title}</p>
           
-          {/* Applied the responsive value class here */}
-          <p className={cn("mt-2 font-bold", defaultValueClass, valueClassName)}>{value}</p>
+          {/* Value styling */}
+          <p className={cn("mt-2 font-bold bg-gradient-to-r from-indigo-200 to-purple-200 bg-clip-text text-transparent", defaultValueClass, valueClassName)}>{value}</p>
           
           {trend && (
             <p
-              className={`mt-1 text-xs ${ // Reduced margin top (mt-1) and ensured text-xs for trend on mobile
-                trendUp ? "text-success" : "text-destructive"
+              className={`mt-1 text-xs transition-colors ${
+                trendUp ? "text-emerald-300" : "text-red-300"
               }`}
             >
               {trend}
@@ -69,12 +63,11 @@ export const StatsCard = ({
           )}
         </div>
         
-        {/* 🎯 Applied RESPONSIVE PADDING and ICON SIZING 🎯 */}
-        <div className={`rounded-lg ${iconContainerClass}`}>
-          {/* Applied the responsive icon class */}
+        {/* Icon container with glassmorphism */}
+        <div className={`rounded-xl ${iconContainerClass}`}>
           <Icon className={cn(defaultIconClass, iconClassName)} />
         </div>
       </div>
-    </Card>
+    </div>
   );
 };
